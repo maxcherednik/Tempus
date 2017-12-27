@@ -2,12 +2,22 @@
 
   <PropertyGroup>
     <TargetFramework>netstandard1.1</TargetFramework>
+    <PackageId>Tempus</PackageId>
+    <Authors>Maxim Cherednik</Authors>
+    <Description>A simple async/await, unit-test friendly timer implementation</Description>
+    <PackageLicenseUrl>https://github.com/maxcherednik/Tempus/blob/master/LICENSE</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/maxcherednik/Tempus</PackageProjectUrl>
+    <PackageTags>timer scheduler unit-testing TDD netstandard</PackageTags>
+    <Title>Tempus</Title>
+    <Owners>maxim.cherednik</Owners>
+    <Copyright>Copyright 2017 Maxim Cherednik</Copyright>
+    <Summary>A simple async/await, unit-test friendly timer implementation</Summary>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
-    <LangVersion>7.1</LangVersion>
+    <LangVersion>Latest</LangVersion>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <LangVersion>7.1</LangVersion>
+    <LangVersion>Latest</LangVersion>
   </PropertyGroup>
 </Project>
