@@ -1,0 +1,23 @@
+
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2012
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tempus", "Tempus\Tempus.csproj", "{3AB2580F-60AF-4412-AAF8-550050AF09CC}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Tempus.Tests", "Tempus.Tests\Tempus.Tests.csproj", "{449482CF-846B-414C-9820-8E4EE8C274C5}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{3AB2580F-60AF-4412-AAF8-550050AF09CC}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3AB2580F-60AF-4412-AAF8-550050AF09CC}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3AB2580F-60AF-4412-AAF8-550050AF09CC}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3AB2580F-60AF-4412-AAF8-550050AF09CC}.Release|Any CPU.Build.0 = Release|Any CPU
+		{449482CF-846B-414C-9820-8E4EE8C274C5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{449482CF-846B-414C-9820-8E4EE8C274C5}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{449482CF-846B-414C-9820-8E4EE8C274C5}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{449482CF-846B-414C-9820-8E4EE8C274C5}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal
