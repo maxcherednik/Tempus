@@ -12,6 +12,7 @@
     <Owners>maxim.cherednik</Owners>
     <Copyright>Copyright 2017 Maxim Cherednik</Copyright>
     <Summary>A simple async/await, unit-test friendly timer implementation</Summary>
+    <PackageIconUrl>https://github.com/maxcherednik/Tempus/blob/master/content/images/TempusLogo.png?raw=true</PackageIconUrl>
   </PropertyGroup>
 
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
