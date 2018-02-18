@@ -1,5 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
-
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>netstandard1.1</TargetFramework>
     <PackageId>Tempus</PackageId>
@@ -14,7 +13,6 @@
     <Summary>A simple async/await, unit-test friendly timer implementation</Summary>
     <PackageIconUrl>https://github.com/maxcherednik/Tempus/blob/master/content/images/TempusLogo.png?raw=true</PackageIconUrl>
   </PropertyGroup>
-
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <LangVersion>Latest</LangVersion>
   </PropertyGroup>

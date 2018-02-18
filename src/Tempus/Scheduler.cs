@@ -6,13 +6,38 @@ namespace Tempus
 {
     public class Scheduler : IScheduler
     {
-        public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException)
+        public DateTimeOffset Now => DateTimeOffset.Now;
+        
+        public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException)
         {
-            return Schedule(period, TimeSpan.Zero, action, onException);
+            return ScheduleInternal(TimeSpan.Zero, period, action, onException, period);
         }
 
-        public IScheduledTask Schedule(TimeSpan period, TimeSpan initialDelay, Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException)
+        public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException)
         {
+            return ScheduleInternal(initialDelay, period, action, onException, period);
+        }
+
+        public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
+        {
+            return ScheduleInternal(TimeSpan.Zero, period, action, onException, maxBackoffPeriod);
+        }
+
+        public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
+        {
+            return ScheduleInternal(initialDelay, period, action, onException, maxBackoffPeriod);
+        }
+
+        private IScheduledTask ScheduleInternal(TimeSpan initialDelay, TimeSpan period,
+            Func<CancellationToken, Task> action, Func<IFailureContext, CancellationToken, Task> onException,
+            TimeSpan maxBackoffPeriod)
+        {
+            SchedulerAssertions.Assert(initialDelay, period, action, onException, maxBackoffPeriod);
+
             var cancellationTokenSource = new CancellationTokenSource();
             var cancellationToken = cancellationTokenSource.Token;
 
@@ -22,16 +47,18 @@ namespace Tempus
                 {
                     try
                     {
-                        if(initialDelay > TimeSpan.Zero)
+                        var failureContext = new FailureContext(period, maxBackoffPeriod,() => DateTime.Now);
+
+                        if (initialDelay > TimeSpan.Zero)
                         {
                             await Task.Delay(initialDelay, cancellationToken);
-                            await CallAction(action, onException, cancellationToken);
+                            await CallAction(action, onException, cancellationToken, failureContext);
                         }
 
                         while (!cancellationToken.IsCancellationRequested)
                         {
-                            await Task.Delay(period, cancellationToken);
-                            await CallAction(action, onException, cancellationToken);
+                            await Task.Delay(failureContext.CurrentPeriod, cancellationToken);
+                            await CallAction(action, onException, cancellationToken, failureContext);
                         }
                     }
                     catch (OperationCanceledException)
@@ -44,17 +71,21 @@ namespace Tempus
             return new ScheduledTask(task, cancellationTokenSource);
         }
 
-        private static async Task CallAction(Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException, CancellationToken cancellationToken)
+        private static async Task CallAction(Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException, CancellationToken cancellationToken,
+            FailureContext failureContext)
         {
             try
             {
                 await action(cancellationToken);
+                failureContext.Reset();
             }
             catch (Exception e)
             {
                 try
                 {
-                    await onException(e, cancellationToken);
+                    failureContext.SetException(e);
+                    await onException(failureContext, cancellationToken);
                 }
                 catch
                 {

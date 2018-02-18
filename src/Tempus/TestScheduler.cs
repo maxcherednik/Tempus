@@ -8,29 +8,53 @@ namespace Tempus
 {
     public class TestScheduler : IScheduler
     {
-        private DateTime _currentDateTime;
+        private readonly ConcurrentDictionary<TestScheduledTask, TestScheduledTask> _timers;
 
-        private ConcurrentDictionary<TestScheduledTask, TestScheduledTask> _timers;
-
-        public TestScheduler()
+        public TestScheduler() : this(DateTimeOffset.Now)
         {
-            _currentDateTime = DateTime.UtcNow;
+        }
+
+        public TestScheduler(DateTimeOffset initialCurrentDateTime)
+        {
+            Now = initialCurrentDateTime;
 
             _timers = new ConcurrentDictionary<TestScheduledTask, TestScheduledTask>();
         }
 
-        public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException)
+        public DateTimeOffset Now { get; private set; }
+
+        public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException)
         {
-            var t = new TestScheduledTask(_currentDateTime.Add(period), period, action, onException);
-
-            _timers.TryAdd(t, null);
-
-            return t;
+            return RegisterScheduledTask(period, period, action, onException, period);
         }
 
-        public IScheduledTask Schedule(TimeSpan period, TimeSpan initialDelay, Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException)
+        public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException)
         {
-            var t = new TestScheduledTask(_currentDateTime.Add(initialDelay), period, action, onException);
+            return RegisterScheduledTask(initialDelay, period, action, onException, period);
+        }
+
+        public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
+        {
+            return RegisterScheduledTask(period, period, action, onException, maxBackoffPeriod);
+        }
+
+        public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
+        {
+            return RegisterScheduledTask(initialDelay, period, action, onException, maxBackoffPeriod);
+        }
+
+        private IScheduledTask RegisterScheduledTask(TimeSpan initialDelay, TimeSpan period,
+            Func<CancellationToken, Task> action, Func<IFailureContext, CancellationToken, Task> onException,
+            TimeSpan maxBackoffPeriod)
+        {
+            SchedulerAssertions.Assert(initialDelay, period, action, onException, maxBackoffPeriod);
+
+            var t = new TestScheduledTask(Now.Add(initialDelay), period, action, onException,
+                maxBackoffPeriod, () => Now);
 
             _timers.TryAdd(t, null);
 
@@ -39,7 +63,12 @@ namespace Tempus
 
         public async Task AdvanceBy(TimeSpan timeSpan)
         {
-            _currentDateTime = _currentDateTime.Add(timeSpan);
+            if (timeSpan <= TimeSpan.Zero)
+            {
+                throw new ArgumentOutOfRangeException(nameof(timeSpan), timeSpan, "TimeSpan should be greater than 0");
+            }
+            
+            Now = Now.Add(timeSpan);
 
             bool timerWasSignaled;
             do
@@ -58,9 +87,9 @@ namespace Tempus
                     }
                     else
                     {
-                        if (timer.DueTime <= _currentDateTime)
+                        if (timer.DueTime <= Now)
                         {
-                            await CallAction(timer.Action, timer.OnException, CancellationToken.None);
+                            await CallAction(timer);
                             timer.SetNextDueTime();
                             timerWasSignaled = true;
                         }
@@ -71,21 +100,23 @@ namespace Tempus
                         _timers.TryRemove(cancelledTimer, out _);
                     }
                 }
-            }
-            while (timerWasSignaled);
+            } while (timerWasSignaled);
         }
 
-        private static async Task CallAction(Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException, CancellationToken cancellationToken)
+        private static async Task CallAction(TestScheduledTask testScheduledTask)
         {
             try
             {
-                await action(cancellationToken).ConfigureAwait(false);
+                await testScheduledTask.Action(CancellationToken.None).ConfigureAwait(false);
+                testScheduledTask.FailureContext.Reset();
             }
-            catch (Exception e)
+            catch (Exception ex)
             {
                 try
                 {
-                    await onException(e, cancellationToken).ConfigureAwait(false);
+                    testScheduledTask.FailureContext.SetException(ex);
+                    await testScheduledTask.OnException(testScheduledTask.FailureContext, CancellationToken.None)
+                        .ConfigureAwait(false);
                 }
                 catch
                 {

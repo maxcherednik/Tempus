@@ -6,23 +6,26 @@ namespace Tempus
 {
     internal class TestScheduledTask : IScheduledTask
     {
-        public TestScheduledTask(DateTime dueTime, TimeSpan period, Func<CancellationToken, Task> action, Func<Exception, CancellationToken, Task> onException)
+        public TestScheduledTask(DateTimeOffset dueTime, TimeSpan period, Func<CancellationToken, Task> action,
+            Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod,
+            Func<DateTimeOffset> currentDateTime)
         {
             OnException = onException;
             Action = action;
-            Period = period;
             DueTime = dueTime;
+
+            FailureContext = new FailureContext(period, maxBackoffPeriod, currentDateTime);
         }
 
-        public DateTime DueTime { get; private set; }
-
-        public TimeSpan Period { get; }
+        public DateTimeOffset DueTime { get; private set; }
 
         public Func<CancellationToken, Task> Action { get; }
 
-        public Func<Exception, CancellationToken, Task> OnException { get; }
+        public Func<IFailureContext, CancellationToken, Task> OnException { get; }
 
         public bool CancelRequested { get; private set; }
+
+        public FailureContext FailureContext { get; }
 
         public Task Cancel()
         {
@@ -32,7 +35,7 @@ namespace Tempus
 
         internal void SetNextDueTime()
         {
-            DueTime = DueTime.Add(Period);
+            DueTime = DueTime.Add(FailureContext.CurrentPeriod);
         }
     }
 }

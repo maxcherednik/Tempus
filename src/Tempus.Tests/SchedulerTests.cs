@@ -16,15 +16,12 @@ namespace Tempus.Tests
             var autoResetEvent = new AutoResetEvent(false);
 
             var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
-                                                   (ct) =>
+                                                   ct =>
                                                    {
                                                        autoResetEvent.Set();
                                                        return Task.CompletedTask;
                                                    },
-                                                   (ex, ct) =>
-                                                   {
-                                                       return Task.CompletedTask;
-                                                   });
+                                                   (failureContext, ct) => Task.CompletedTask);
 
             var intTimerCounter = 0;
 
@@ -45,20 +42,17 @@ namespace Tempus.Tests
 
             var autoResetEvent = new AutoResetEvent(false);
 
-            var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
-                                                   TimeSpan.FromMilliseconds(300),
-                                                   (ct) =>
+            var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(300),
+                                                   TimeSpan.FromMilliseconds(50),
+                                                   ct =>
                                                    {
                                                        autoResetEvent.Set();
                                                        return Task.CompletedTask;
                                                    },
-                                                   (ex, ct) =>
-                                                   {
-                                                       return Task.CompletedTask;
-                                                   });
+                                                   (failureContext, ct) => Task.CompletedTask);
 
-            var signaledInitialy = autoResetEvent.WaitOne(280);
-            signaledInitialy.Should().BeFalse("Should not be ticking before initial delay");
+            var signaledInitially = autoResetEvent.WaitOne(280);
+            signaledInitially.Should().BeFalse("Should not be ticking before initial delay");
 
             var intTimerCounter = 0;
 
@@ -81,16 +75,13 @@ namespace Tempus.Tests
 
             Task Throwing() => throw new InvalidOperationException("Boom");
 
-            Exception catchedException = null;
+            IFailureContext actualFailureContext = null;
 
             var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
-                                                   (ct) =>
+                                                   ct => Throwing(),
+                                                   (failureContext, ct) =>
                                                    {
-                                                       return Throwing();
-                                                   },
-                                                   (ex, ct) =>
-                                                   {
-                                                       catchedException = ex;
+                                                       actualFailureContext = failureContext;
                                                        autoResetEvent.Set();
                                                        return Task.CompletedTask;
                                                    });
@@ -102,7 +93,7 @@ namespace Tempus.Tests
                 var signaled = autoResetEvent.WaitOne(100);
                 signaled.Should().BeTrue();
 
-                catchedException.Should().BeOfType<InvalidOperationException>();
+                actualFailureContext.Exception.Should().BeOfType<InvalidOperationException>();
 
                 intTimerCounter++;
             }
@@ -119,16 +110,13 @@ namespace Tempus.Tests
 
             Task Throwing() => throw new InvalidOperationException("Boom");
 
-            Exception catchedException = null;
+            IFailureContext actualFailureContext = null;
 
             var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
-                                                   (ct) =>
+                                                   ct => Throwing(),
+                                                   (failureContext, ct) =>
                                                    {
-                                                       return Throwing();
-                                                   },
-                                                   (ex, ct) =>
-                                                   {
-                                                       catchedException = ex;
+                                                       actualFailureContext = failureContext;
                                                        autoResetEvent.Set();
                                                        return Throwing();
                                                    });
@@ -140,7 +128,7 @@ namespace Tempus.Tests
                 var signaled = autoResetEvent.WaitOne(100);
                 signaled.Should().BeTrue();
 
-                catchedException.Should().BeOfType<InvalidOperationException>();
+                actualFailureContext.Exception.Should().BeOfType<InvalidOperationException>();
 
                 intTimerCounter++;
             }
@@ -156,15 +144,12 @@ namespace Tempus.Tests
             var autoResetEvent = new AutoResetEvent(false);
 
             var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
-                                                   (ct) =>
+                                                   ct =>
                                                    {
                                                        autoResetEvent.Set();
                                                        return Task.CompletedTask;
                                                    },
-                                                   (ex, ct) =>
-                                                   {
-                                                       return Task.CompletedTask;
-                                                   });
+                                                   (failureContext, ct) => Task.CompletedTask);
 
             var intTimerCounter = 0;
 
@@ -191,15 +176,12 @@ namespace Tempus.Tests
             var timerNotifiedForCancellation = new TaskCompletionSource<bool>();
 
             var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
-                                                   async (ct) =>
+                                                   async ct =>
                                                    {
                                                        autoResetEvent.Set();
                                                        await timerNotifiedForCancellation.Task;
                                                    },
-                                                   (ex, ct) =>
-                                                   {
-                                                       return Task.CompletedTask;
-                                                   });
+                                                   (failureContext, ct) => Task.CompletedTask);
 
             var signaled = autoResetEvent.WaitOne(70);
             signaled.Should().BeTrue();
@@ -213,6 +195,72 @@ namespace Tempus.Tests
             timerNotifiedForCancellation.SetResult(true);
 
             await actionTask;
+        }
+
+        [Fact]
+        public async Task ShouldBackoffAfterException()
+        {
+            var scheduler = new Scheduler();
+
+            Task Throwing() => throw new InvalidOperationException("Boom");
+
+            IFailureContext actualFailureContext = null;
+
+            var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
+                ct => Throwing(),
+                (failureContext, ct) =>
+                {
+                    actualFailureContext = failureContext;
+                    return Task.CompletedTask;
+                }, TimeSpan.FromMilliseconds(1000));
+
+            await Task.Delay(50 + 50 + 100 + 200 + 400 + 800 + 1000 + 1000);
+            
+            await scheduledTask.Cancel();
+            
+            // assert
+            
+            actualFailureContext.FailCount.Should().Be(7);
+            actualFailureContext.Period.Should().Be(TimeSpan.FromMilliseconds(50));
+            actualFailureContext.MaxPeriod.Should().Be(TimeSpan.FromMilliseconds(1000));
+            actualFailureContext.CurrentPeriod.Should().Be(TimeSpan.FromMilliseconds(1000));
+        }
+        
+        [Fact]
+        public async Task ShouldTickWithNormalPeriodAfterExceptionResolved()
+        {
+            var scheduler = new Scheduler();
+            
+            var shouldThrow = true;
+
+            var counter = 0;
+
+            Task Throwing()
+            {
+                if (shouldThrow)
+                {
+                    throw new InvalidOperationException("Boom");
+                }
+                
+                counter++;
+
+                return Task.CompletedTask;
+            }
+
+            var scheduledTask = scheduler.Schedule(TimeSpan.FromMilliseconds(50),
+                ct => Throwing(),
+                (failureContext, ct) => Task.CompletedTask, 
+                TimeSpan.FromMilliseconds(1000));
+
+            await Task.Delay(50 + 50 + 100 + 200 + 400 + 800 + 1000);
+
+            shouldThrow = false;
+            
+            await Task.Delay(1100);
+            
+            await scheduledTask.Cancel();
+            
+            counter.Should().BeGreaterOrEqualTo(20);
         }
     }
 }
