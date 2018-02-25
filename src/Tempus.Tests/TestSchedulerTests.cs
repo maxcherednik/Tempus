@@ -251,5 +251,32 @@ namespace Tempus.Tests
 
             advanceAction.ShouldThrow<ArgumentOutOfRangeException>();
         }
+        
+        [Fact]
+        public async Task ShouldRespectNotionOfNowWhileTicking()
+        {
+            var initPoint = DateTimeOffset.Now.AddYears(-1);
+            var scheduler = new TestScheduler(initPoint);
+
+            DateTimeOffset timeDuringExecution;
+
+            var scheduledTask = scheduler.Schedule(TimeSpan.FromSeconds(50),
+                ct =>
+                {
+                    timeDuringExecution = scheduler.Now;
+                    return Task.CompletedTask;
+                },
+                (failureContext, ct) => Task.CompletedTask);
+
+            await scheduler.AdvanceBy(TimeSpan.FromSeconds(70));
+
+
+            timeDuringExecution.Should().Be(initPoint.Add(TimeSpan.FromSeconds(50)));
+
+
+            scheduler.Now.Should().Be(initPoint.Add(TimeSpan.FromSeconds(70)));
+
+            await scheduledTask.Cancel();
+        }
     }
 }

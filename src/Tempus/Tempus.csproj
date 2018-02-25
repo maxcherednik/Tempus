@@ -15,8 +15,10 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
     <LangVersion>Latest</LangVersion>
+    <DocumentationFile>bin\Debug\netstandard1.1\Tempus.xml</DocumentationFile>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <LangVersion>Latest</LangVersion>
+    <DocumentationFile>bin\Release\netstandard1.1\Tempus.xml</DocumentationFile>
   </PropertyGroup>
 </Project>

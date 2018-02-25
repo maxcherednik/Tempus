@@ -6,14 +6,25 @@ using System.Threading.Tasks;
 
 namespace Tempus
 {
+    
+    /// <summary>
+    /// Represents scheduler which can be used for unit testing
+    /// </summary>
     public class TestScheduler : IScheduler
     {
         private readonly ConcurrentDictionary<TestScheduledTask, TestScheduledTask> _timers;
 
+        /// <summary>
+        /// Initializes a new instance of the TestScheduler class with initial point in time at DateTimeOffset.Now
+        /// </summary>
         public TestScheduler() : this(DateTimeOffset.Now)
         {
         }
-
+        
+        /// <summary>
+        /// Initializes a new instance of the TestScheduler class with initial point in time specified
+        /// </summary>
+        /// <param name="initialCurrentDateTime">Initial point in time</param>
         public TestScheduler(DateTimeOffset initialCurrentDateTime)
         {
             Now = initialCurrentDateTime;
@@ -21,26 +32,31 @@ namespace Tempus
             _timers = new ConcurrentDictionary<TestScheduledTask, TestScheduledTask>();
         }
 
+        /// <inheritdoc />
         public DateTimeOffset Now { get; private set; }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException)
         {
             return RegisterScheduledTask(period, period, action, onException, period);
         }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException)
         {
             return RegisterScheduledTask(initialDelay, period, action, onException, period);
         }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
         {
             return RegisterScheduledTask(period, period, action, onException, maxBackoffPeriod);
         }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
         {
@@ -61,14 +77,22 @@ namespace Tempus
             return t;
         }
 
-        public async Task AdvanceBy(TimeSpan timeSpan)
+        
+        /// <summary>
+        /// Advances the scheduler's clock by the specified relative time, running all work scheduled for that timespan.
+        /// </summary>
+        /// <param name="period">Period</param>
+        /// <returns>Task, that will be completed once all the work scheduled will be executed</returns>
+        /// <exception cref="ArgumentOutOfRangeException">Thrown when period is less or equal to 0</exception>
+        public async Task AdvanceBy(TimeSpan period)
         {
-            if (timeSpan <= TimeSpan.Zero)
+            if (period <= TimeSpan.Zero)
             {
-                throw new ArgumentOutOfRangeException(nameof(timeSpan), timeSpan, "TimeSpan should be greater than 0");
+                throw new ArgumentOutOfRangeException(nameof(period), period, "Period should be greater than 0");
             }
-            
-            Now = Now.Add(timeSpan);
+
+
+            var newNow = Now.Add(period);
 
             bool timerWasSignaled;
             do
@@ -87,8 +111,9 @@ namespace Tempus
                     }
                     else
                     {
-                        if (timer.DueTime <= Now)
+                        if (timer.DueTime <= newNow)
                         {
+                            Now = timer.DueTime;
                             await CallAction(timer);
                             timer.SetNextDueTime();
                             timerWasSignaled = true;
@@ -101,6 +126,8 @@ namespace Tempus
                     }
                 }
             } while (timerWasSignaled);
+
+            Now = newNow;
         }
 
         private static async Task CallAction(TestScheduledTask testScheduledTask)
