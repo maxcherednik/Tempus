@@ -4,35 +4,41 @@ using System.Threading.Tasks;
 
 namespace Tempus
 {
+    /// <inheritdoc />
     public class Scheduler : IScheduler
     {
+        /// <inheritdoc />
         public DateTimeOffset Now => DateTimeOffset.Now;
-        
+
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException)
         {
             return ScheduleInternal(TimeSpan.Zero, period, action, onException, period);
         }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException)
         {
             return ScheduleInternal(initialDelay, period, action, onException, period);
         }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
         {
             return ScheduleInternal(TimeSpan.Zero, period, action, onException, maxBackoffPeriod);
         }
 
+        /// <inheritdoc />
         public IScheduledTask Schedule(TimeSpan initialDelay, TimeSpan period, Func<CancellationToken, Task> action,
             Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod)
         {
             return ScheduleInternal(initialDelay, period, action, onException, maxBackoffPeriod);
         }
 
-        private IScheduledTask ScheduleInternal(TimeSpan initialDelay, TimeSpan period,
+        private static IScheduledTask ScheduleInternal(TimeSpan initialDelay, TimeSpan period,
             Func<CancellationToken, Task> action, Func<IFailureContext, CancellationToken, Task> onException,
             TimeSpan maxBackoffPeriod)
         {
@@ -45,28 +51,21 @@ namespace Tempus
             {
                 using (cancellationTokenSource)
                 {
-                    try
+                    var failureContext = new FailureContext(period, maxBackoffPeriod, () => DateTime.Now);
+
+                    if (initialDelay > TimeSpan.Zero)
                     {
-                        var failureContext = new FailureContext(period, maxBackoffPeriod,() => DateTime.Now);
-
-                        if (initialDelay > TimeSpan.Zero)
-                        {
-                            await Task.Delay(initialDelay, cancellationToken);
-                            await CallAction(action, onException, cancellationToken, failureContext);
-                        }
-
-                        while (!cancellationToken.IsCancellationRequested)
-                        {
-                            await Task.Delay(failureContext.CurrentPeriod, cancellationToken);
-                            await CallAction(action, onException, cancellationToken, failureContext);
-                        }
+                        await Task.Delay(initialDelay, cancellationToken);
+                        await CallAction(action, onException, cancellationToken, failureContext);
                     }
-                    catch (OperationCanceledException)
+
+                    while (!cancellationToken.IsCancellationRequested)
                     {
-                        // on purpose
+                        await Task.Delay(failureContext.CurrentPeriod, cancellationToken);
+                        await CallAction(action, onException, cancellationToken, failureContext);
                     }
                 }
-            });
+            }, cancellationToken);
 
             return new ScheduledTask(task, cancellationTokenSource);
         }

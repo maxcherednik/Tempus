@@ -1,4 +1,5 @@
-﻿using System.Threading;
+﻿using System;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace Tempus
@@ -15,11 +16,18 @@ namespace Tempus
             _cancellationTokenSource = cancellationTokenSource;
         }
 
-        public Task Cancel()
+        public async Task Cancel()
         {
             _cancellationTokenSource.Cancel();
 
-            return _task;
+            try
+            {
+                await _task;
+            }
+            catch (OperationCanceledException)
+            {
+                // on purpose
+            }
         }
     }
 }

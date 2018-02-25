@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 namespace Tempus
 {
     /// <summary>
-    /// Represents Scheduler abstraction
+    /// Represents an object that schedules units of work.
     /// </summary>
     public interface IScheduler
     {
