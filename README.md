@@ -1,4 +1,5 @@
-# Tempus
+# Tempus 
+[![NuGet](https://img.shields.io/nuget/vpre/Tempus.svg)](https://www.nuget.org/packages/Tempus)
 
 This is a simple async/await, unit-test friendly timer implementation.
 
