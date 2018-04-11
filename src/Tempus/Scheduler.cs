@@ -72,7 +72,7 @@ namespace Tempus
             Func<IFailureContext, CancellationToken, Task> onException, TimeSpan maxBackoffPeriod) =>
             ScheduleInternal(initialDelay, period, action, onException, maxBackoffPeriod);
 
-        private static IScheduledTask ScheduleInternal(TimeSpan initialDelay, TimeSpan period,
+        private IScheduledTask ScheduleInternal(TimeSpan initialDelay, TimeSpan period,
             Func<CancellationToken, Task> action, Func<IFailureContext, CancellationToken, Task> onException,
             TimeSpan maxBackoffPeriod)
         {
@@ -85,7 +85,7 @@ namespace Tempus
             {
                 using (cancellationTokenSource)
                 {
-                    var failureContext = new FailureContext(period, maxBackoffPeriod, () => DateTime.Now);
+                    var failureContext = new FailureContext(period, maxBackoffPeriod, () => Now);
 
                     if (initialDelay > TimeSpan.Zero)
                     {
