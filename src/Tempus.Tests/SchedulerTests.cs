@@ -260,7 +260,7 @@ namespace Tempus.Tests
             
             await scheduledTask.Cancel();
             
-            counter.Should().BeGreaterOrEqualTo(20);
+            counter.Should().BeGreaterOrEqualTo(15);
         }
     }
 }
